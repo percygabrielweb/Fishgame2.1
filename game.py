@@ -1,5 +1,6 @@
 import pygame
 import random
+import math
 
 
 # Load images
@@ -16,23 +17,72 @@ PELLET_WIDTH = 1
 PELLET_HEIGHT = 1
 FISH_SIZE = 43
 MIN_SCALE, MAX_SCALE = 10, 30
-FPS = 240
+FPS = 240 # 60 should be default...this is just a cap
+IMAGING_LABELING_FREQUENCY = 2 # saves 1 image and frame per second if at 60, saves 60 per second if = 1
+
 
 class Pellet:
-    def __init__(self, x, y, x_velocity, scale):
+    def __init__(self, x, y, y_velocity, scale):
+        self.frame = 0
         self.x = x
         self.y = y
         self.scale = scale
-        self.x_velocity = x_velocity*(0.02*scale)
+        self.y_velocity = y_velocity*(0.02*scale)
         self.image = random.choice(pellet_images)
         self.image = pygame.transform.scale(self.image, (int(PELLET_WIDTH * (scale/2)), int(PELLET_HEIGHT * (scale/2))))  # Adjust the size as needed
+        self.x_direction = 1
 
     def update(self):
-        self.y += self.x_velocity
+        if self.frame > 10 or self.frame < 0: # swings every 30 frames
+            self.x_direction = -self.x_direction
+        self.x += self.x_direction # swings left or right every 30 frames
+        self.y += self.y_velocity
+        self.frame += self.x_direction
+        
         return self.y >= HEIGHT  # Return True if pellet is out of bounds
 
     def draw(self, screen):
         # Similar darkening logic as in the Fish class
+        darkness_factor = (1 - self.scale / MAX_SCALE) * 120 # adjust factor as needed
+
+        dark_surface = pygame.Surface((int(PELLET_WIDTH * (self.scale/2)), int(PELLET_HEIGHT * (self.scale/2))), flags=pygame.SRCALPHA)
+        dark_surface.fill((darkness_factor, darkness_factor, darkness_factor, 0))
+
+        darkened_image = self.image.copy()
+        darkened_image.blit(dark_surface, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+
+        screen.blit(darkened_image, (self.x, self.y))
+        
+class Debris:
+    def __init__(self, x, y, x_velocity, y_velocity, scale, vertex):
+        self.x_initial = x  # Store the initial x position to oscillate around it
+        self.y = y
+        self.scale = scale
+        self.x_velocity = x_velocity*0.01  # This will determine the speed of the oscillation
+        self.y_velocity = y_velocity * (0.01 * scale)  # Base vertical velocity adjusted per frame
+        self.vertex = vertex 
+        self.frame = 0
+        self.image = random.choice(pellet_images)  # It will have the same images as pellets
+        self.image = pygame.transform.scale(self.image, (int(PELLET_WIDTH * (scale/2)), int(PELLET_HEIGHT * (scale/2))))
+        self.direction = 1
+
+    def update(self):
+        # Oscillation pattern
+        oscillation_range = self.vertex  # Adjust the range of oscillation based on vertex
+        if self.frame > 60:
+            self.direction = -self.direction
+        self.frame += 1*self.direction
+
+        # Update x using a sine wave pattern for back and forth movement
+        self.x = self.x_initial + math.sin(self.frame * self.x_velocity) * oscillation_range
+
+        # Update y position based on vertical velocity
+        self.y += self.y_velocity
+        
+        return self.y >= HEIGHT  # Returns True if debris reached the bottom
+
+
+    def draw(self, screen):
         darkness_factor = (1 - self.scale / MAX_SCALE) * 120 # adjust factor as needed
 
         dark_surface = pygame.Surface((int(PELLET_WIDTH * (self.scale/2)), int(PELLET_HEIGHT * (self.scale/2))), flags=pygame.SRCALPHA)
@@ -135,6 +185,7 @@ class GameState:
     def __init__(self):
         self.pellets = []
         self.fishes = []
+        self.debrises = []
         self.background = background_image
 
     def add_fish(self):
@@ -144,6 +195,11 @@ class GameState:
     def add_pellet(self):
         new_pellet = Pellet(random.randint(0, WIDTH - PELLET_WIDTH), 0, 5, random.randint(MIN_SCALE, MAX_SCALE))
         self.pellets.append(new_pellet)
+    
+    def add_debris(self):
+        new_debris = Debris(random.randint(0, WIDTH - PELLET_WIDTH), 0, 3, 3, random.randint(MIN_SCALE, MAX_SCALE), random.randint(40,100))
+        self.debrises.append(new_debris)
+        # Poop falls from the top, not from the fishes...TODO this can be changed 
 
     def update(self):
         # Generate new pellets and fishes at random intervals
@@ -152,9 +208,12 @@ class GameState:
             self.add_pellet()
         if rng == 42 and len(self.fishes) < 7: #1% chance of fish spawn #limit on 7 fishes at a time
             self.add_fish()
+        if rng > 95:
+            self.add_debris()
 
         # Update pellets
         self.pellets[:] = [pellet for pellet in self.pellets if not pellet.update()]
+        self.debrises[:] = [debris for debris in self.debrises if not debris.update()]
 
         # Update fishes
         for fish in self.fishes:
@@ -167,7 +226,7 @@ class GameState:
         # Draw background and all game objects
         screen.blit(self.background, (0, 0))
         # Combine and sort all entities by their scale (smaller scale first) so that some objects appear closer
-        all_entities = self.pellets + self.fishes
+        all_entities = self.pellets + self.fishes + self.debrises
         all_entities_sorted = sorted(all_entities, key=lambda entity: entity.scale)
 
         # Draw sorted entities
@@ -189,7 +248,7 @@ def main():
     clock = pygame.time.Clock()
     game_state = GameState()
     running = True
-    while running and image_counter < 1001: # stop after 1000 images are generated
+    while running and image_counter < 2001: # stop after 1000 images are generated
         clock.tick(FPS)  # Adjust the fps of everything 60 is the base
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -199,7 +258,7 @@ def main():
         
         frame_counter += 1
         pygame.display.flip()
-        if frame_counter == 2: # Takes image every 2 frames...
+        if frame_counter == IMAGING_LABELING_FREQUENCY: # Takes image every ___ frames frames...(1 for frequent saving, 60 for slow)
             current_pellets = game_state.get_pellets()
             current_fishes = game_state.get_fishes()
 
