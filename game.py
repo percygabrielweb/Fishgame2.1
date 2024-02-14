@@ -1,6 +1,7 @@
 import pygame
 import random
 import math
+import csv
 
 
 # Load images
@@ -19,10 +20,23 @@ FISH_SIZE = 43
 MIN_SCALE, MAX_SCALE = 10, 30
 FPS = 240 # 60 should be default...this is just a cap
 IMAGING_LABELING_FREQUENCY = 2 # saves 1 image and frame per second if at 60, saves 60 per second if = 1
+NEXT_ID = 1 # ID for each object
+TRACKING_DATA = {} # dictionary for the x and y pos of all objects
 
+def get_NEXT_ID():
+    global NEXT_ID
+    result = NEXT_ID
+    NEXT_ID += 1
+    return result
+def update_TRACKING_DATA(entity, label):
+    if entity.id not in TRACKING_DATA:
+        TRACKING_DATA[entity.id] = {'positions': [], 'label': label}
+    TRACKING_DATA[entity.id]['positions'].append((entity.x, entity.y))
 
 class Pellet:
     def __init__(self, x, y, y_velocity, scale):
+        self.label = 0
+        self.id = get_NEXT_ID()
         self.frame = 0
         self.x = x
         self.y = y
@@ -55,6 +69,8 @@ class Pellet:
         
 class Debris:
     def __init__(self, x, y, x_velocity, y_velocity, scale, vertex):
+        self.label = 1
+        self.id = get_NEXT_ID()
         self.x_initial = x  # Store the initial x position to oscillate around it
         self.y = y
         self.scale = scale
@@ -180,6 +196,19 @@ def generate_labels(image_number, pellets, fishes, width, height):
             # Write to file (class_id x_center y_center width height)
             file.write(f"1 {x_center} {y_center} {box_width} {box_height}\n")
 
+def export_tracking_data_to_csv():
+    with open('tracking_data_labeled.csv', 'w', newline='') as csvfile:
+        fieldnames = ['id', 'label', 'positions']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for obj_id, data in TRACKING_DATA.items():
+            label = data['label']  # Correctly access the label
+            positions_formatted = data['positions']  # Access positions directly
+            # Convert positions list of tuples into a string format if needed
+            positions_str = ";".join([f"({x},{y})" for x, y in positions_formatted])
+            writer.writerow({'id': obj_id, 'label': label, 'positions': positions_str})
+
+
 
 class GameState:
     def __init__(self):
@@ -235,6 +264,9 @@ class GameState:
             
     def get_pellets(self):
         return self.pellets
+    
+    def get_debrises(self):
+        return self.debrises
 
     def get_fishes(self):
         return self.fishes
@@ -248,7 +280,7 @@ def main():
     clock = pygame.time.Clock()
     game_state = GameState()
     running = True
-    while running and image_counter < 2001: # stop after 1000 images are generated
+    while running and image_counter < 1001: # stop after 1000 images are generated
         clock.tick(FPS)  # Adjust the fps of everything 60 is the base
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -261,12 +293,21 @@ def main():
         if frame_counter == IMAGING_LABELING_FREQUENCY: # Takes image every ___ frames frames...(1 for frequent saving, 60 for slow)
             current_pellets = game_state.get_pellets()
             current_fishes = game_state.get_fishes()
+            current_debrises = game_state.get_debrises()
 
             generate_labels(image_counter + 1, current_pellets, current_fishes, WIDTH, HEIGHT) # generating labels
+            
+            for pellet in current_pellets:
+                update_TRACKING_DATA(pellet, 0)  # Assuming 0 is the label for pellets
+            for debris in current_debrises:
+                update_TRACKING_DATA(debris, 1)
+                
             image_path = f"dataset/images/{image_counter + 1}.jpg"
             pygame.image.save(screen, image_path)
             image_counter += 1
             frame_counter = 0
+    export_tracking_data_to_csv()
+    print(TRACKING_DATA)
 
 if __name__ == "__main__":
     main()
