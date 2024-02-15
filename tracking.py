@@ -22,7 +22,7 @@ while cap.isOpened():
         # Run YOLOv8 tracking on the frame, persisting tracks between frames
         results = model.track(frame, persist=True)
 
-        if results[0].boxes:  # Check if there are any detected boxes
+        if results[0].boxes and results[0].boxes.id is not None:  # Check if there are any detected boxes
             # Get the boxes and track IDs
             boxes = results[0].boxes.xywh.cpu()
             track_ids = results[0].boxes.id.int().cpu().tolist()
