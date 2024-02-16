@@ -20,33 +20,39 @@ while cap.isOpened():
 
     if success:
         # Run YOLOv8 tracking on the frame, persisting tracks between frames
-        results = model.track(frame, persist=True)
+        results = model.track(frame, persist=True, line_width=1)
 
-        if results[0].boxes and results[0].boxes.id is not None:  # Check if there are any detected boxes
+        if results[0].boxes and results[0].boxes.id is not None:  # Check if there are any detected boxes and the IDs are not None
             # Get the boxes and track IDs
             boxes = results[0].boxes.xywh.cpu()
             track_ids = results[0].boxes.id.int().cpu().tolist()
-
+            class_ids = results[0].boxes.cls.int().cpu().tolist()
+            
             # Visualize the results on the frame
             annotated_frame = results[0].plot()
 
             # Plot the tracks
-            for box, track_id in zip(boxes, track_ids):
+            for box, track_id, class_id in zip(boxes, track_ids, results[0].boxes.cls.int().cpu().tolist()):
+            # Skip "fish" completely
+                if results[0].names[class_id] == 'fishes':
+                    continue
+
+                # Process other objects (non-fish)
                 x, y, w, h = box
                 track = track_history[track_id]
                 track.append((float(x), float(y)))  # x, y center point
-                if len(track) > 30:  # retain 30 tracks for visualization
+                if len(track) > 30:
                     track.pop(0)
 
-                # Draw the tracking lines
-                if track:  # Check if there are points to plot
+    # Draw tracking lines only for non-fish
+                if track:
                     points = np.array(track, dtype=np.int32).reshape((-1, 1, 2))
-                    cv2.polylines(annotated_frame, [points], isClosed=False, color=(230, 230, 230), thickness=3)
+                    cv2.polylines(annotated_frame, [points], isClosed=False, color=(230, 230, 230), thickness=1)
         else:
-            # If no boxes are detected, simply show the current frame
+            # If no boxes or IDs are detected, simply show the current frame
             annotated_frame = np.array(frame)
 
-        # Display the annotated frame
+        # Display the annotated frame   
         cv2.imshow("YOLOv8 Tracking", annotated_frame)
 
         # Break the loop if 'q' is pressed
