@@ -14,7 +14,7 @@ cap = cv2.VideoCapture(video_path)
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # For MP4 file
 frame_width = int(cap.get(3))
 frame_height = int(cap.get(4))
-out = cv2.VideoWriter('output.mp4', fourcc, 20.0, (frame_width, frame_height))
+out = cv2.VideoWriter('movie_with_tracker.mp4', fourcc, 20.0, (frame_width, frame_height))
 
 # Store the track history
 track_history = defaultdict(lambda: [])
