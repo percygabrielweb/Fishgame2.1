@@ -2,6 +2,10 @@ from collections import defaultdict
 import cv2
 import numpy as np
 from ultralytics import YOLO
+import csv
+
+
+'''This code will make a csv files ''tracking_data_pellets_only.csv'' based on tracking done by YOLO on pygame_movie.mp4,'''
 
 # Load the YOLOv8 model
 model = YOLO('best.pt')
@@ -17,8 +21,9 @@ track_history = defaultdict(lambda: [])
 pellet_class_id = 0  # Assuming '0' is the class ID for pellets
 
 # Open a file to write the tracking data for pellets only
-with open('tracking_data_pellets_only.txt', 'w') as file:
-    file.write('frame,track_id,x,y\n')  # Header for CSV format
+with open('tracking_data_pellets_only.csv', 'w') as csvfile:
+    csv_writer = csv.writer(csvfile)
+    csv_writer.writerow(['frame', 'track_id', 'x', 'y'])  # Header for CSV format
     
     frame_count = 0  # Initialize frame count
     
@@ -42,18 +47,17 @@ with open('tracking_data_pellets_only.txt', 'w') as file:
 
                 # Plot the tracks and write to file if the object is a pellet
                 for box, track_id, class_id in zip(boxes, track_ids, class_ids):
-                    if class_id == pellet_class_id:  # Check if the object is a pellet
+                    if class_id == pellet_class_id:  # Check if the object is classified as pellet
                         x, y, w, h = box
                         track = track_history[track_id]
-                        track.append((float(x), float(y)))  # x, y center point
-                        
-                        # Write the current position to the file
-                        file.write(f'{frame_count},{track_id},{x},{y}\n')
+                        track.append(float(x))# Append x directly
+                        track.append(float(y))# Append y directly
+                        csv_writer.writerow([frame_count, track_id, x.item(), y.item()])
                         
                         # Draw the tracking lines
                         if track:  # Check if there are points to plot
                             points = np.array(track, dtype=np.int32).reshape((-1, 1, 2))
-                            cv2.polylines(annotated_frame, [points], isClosed=False, color=(230, 230, 230), thickness=3)
+                            cv2.polylines(annotated_frame, [points], isClosed=False, color=(230, 230, 230), thickness=1)
             else:
                 # If no boxes are detected, simply show the current frame
                 annotated_frame = np.array(frame)
