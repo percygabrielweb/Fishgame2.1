@@ -235,7 +235,7 @@ class GameState:
         rng = random.randint(1, 100)
         if rng < 4: #4% chance of pellet spawn
             self.add_pellet()
-        if rng == 42 and len(self.fishes) < 7: #1% chance of fish spawn #limit on 7 fishes at a time
+        if rng == 42 and len(self.fishes) < 7: #1% chance of fish spawn #limit on 6 fishes at a time
             self.add_fish()
         if rng > 95:
             self.add_debris()
