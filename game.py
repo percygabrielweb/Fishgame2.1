@@ -280,7 +280,7 @@ def main():
     clock = pygame.time.Clock()
     game_state = GameState()
     running = True
-    while running and image_counter < 1001: # stop after 1000 images are generated
+    while running and image_counter < 10001: # stop after 1000 images are generated
         clock.tick(FPS)  # Adjust the fps of everything 60 is the base
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -295,19 +295,19 @@ def main():
             current_fishes = game_state.get_fishes()
             current_debrises = game_state.get_debrises()
 
-            generate_labels(image_counter + 1, current_pellets, current_fishes, WIDTH, HEIGHT) # generating labels
+            #generate_labels(image_counter + 1, current_pellets, current_fishes, WIDTH, HEIGHT) # generating labels
             
             for pellet in current_pellets:
                 update_TRACKING_DATA(pellet, 0)  # Assuming 0 is the label for pellets
             for debris in current_debrises:
                 update_TRACKING_DATA(debris, 1)
                 
-            image_path = f"dataset/images/{image_counter + 1}.jpg"
-            pygame.image.save(screen, image_path)
+            #image_path = f"dataset/images/{image_counter + 1}.jpg" # save image... not for now though
+            #pygame.image.save(screen, image_path)
             image_counter += 1
             frame_counter = 0
     export_tracking_data_to_csv()
-    print(TRACKING_DATA)
+    #print(TRACKING_DATA)
 
 if __name__ == "__main__":
     main()
